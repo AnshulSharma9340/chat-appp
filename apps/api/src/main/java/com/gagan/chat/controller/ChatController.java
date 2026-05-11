@@ -31,7 +31,7 @@ public class ChatController {
 
         Message message=new Message();
         message.setContent(request.getContent());
-        message.setContent(request.getSender());
+        message.setSender(request.getSender());
         message.setTimeStamp(LocalDateTime.now());
         if(room!=null){
             room.getMessages().add(message);
