@@ -6,41 +6,55 @@ import com.gagan.chat.playload.MessageRequest;
 import com.gagan.chat.repositories.RoomRepository;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
-import org.springframework.messaging.handler.annotation.SendTo;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.RequestBody;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 
-@Controller
-@CrossOrigin("http://localhost:3000")
-public class ChatController {
-    private RoomRepository roomRepository;
-    public ChatController(RoomRepository roomRepository){
-        this.roomRepository=roomRepository;
-    }
-    //for sending and receiving messages
-    @MessageMapping("/sendMessage/{roomId}")
-    @SendTo("/topic/room/{roomId}")
-    public Message sendMessage(
-            @DestinationVariable String roomId,
-            @RequestBody MessageRequest request
-    ){
-        Room room=roomRepository.findByRoomId(request.getRoonId());
+    @Controller
+    @CrossOrigin("http://localhost:3000")
+    public class ChatController {
 
-        Message message=new Message();
-        message.setContent(request.getContent());
-        message.setSender(request.getSender());
-        message.setTimeStamp(LocalDateTime.now());
-        if(room!=null){
+        private final RoomRepository roomRepository;
+        private final SimpMessagingTemplate messagingTemplate;
+
+        public ChatController(
+                RoomRepository roomRepository,
+                SimpMessagingTemplate messagingTemplate
+        ) {
+            this.roomRepository = roomRepository;
+            this.messagingTemplate = messagingTemplate;
+        }
+
+        @MessageMapping("/sendMessage/{roomId}")
+        public void sendMessage(
+                @DestinationVariable String roomId,
+                MessageRequest request
+        ) {
+
+            Room room = roomRepository.findByRoomId(roomId);
+
+            Message message = new Message();
+            message.setContent(request.getContent());
+            message.setSender(request.getSender());
+            message.setTimeStamp(LocalDateTime.now());
+
+            if (room == null) {
+                room = new Room();
+                room.setRoomId(roomId);
+                room.setMessages(new ArrayList<>());
+            }
+
             room.getMessages().add(message);
             roomRepository.save(room);
 
+            messagingTemplate.convertAndSend(
+                    "/topic/room/" + roomId,
+                    message
+            );
+
+            System.out.println("Message Sent : " + message);
         }
-        else{
-            throw new RuntimeException("room not found!!");
-        }
-        return  message;
     }
-}

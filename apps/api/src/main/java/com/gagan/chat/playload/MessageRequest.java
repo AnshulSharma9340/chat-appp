@@ -14,5 +14,5 @@ import java.time.LocalDateTime;
 public class MessageRequest {
     private  String content;
     private  String sender;
-    private  String roonId;
+    private  String roomsId;
 }
