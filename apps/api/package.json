@@ -1,0 +1,8 @@
+{
+  "name": "api",
+  "private": true,
+  "scripts": {
+    "dev": ".\\mvnw.cmd spring-boot:run",
+    "build": ".\\mvnw.cmd clean package"
+  }
+}
