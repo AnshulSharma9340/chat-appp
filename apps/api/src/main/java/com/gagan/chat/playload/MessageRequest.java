@@ -15,4 +15,6 @@ public class MessageRequest {
     private  String content;
     private  String sender;
     private  String roomsId;
+    private String fileUrl;
+    private String fileType;
 }

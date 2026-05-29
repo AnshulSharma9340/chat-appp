@@ -16,8 +16,9 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         // /topic/message
 
         config.setApplicationDestinationPrefixes("/app");
-        // /app/chat
+        // /app/chats
         // server-side: @MessagingMapping("/chat")
+        config.setUserDestinationPrefix("/user");
     }
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
