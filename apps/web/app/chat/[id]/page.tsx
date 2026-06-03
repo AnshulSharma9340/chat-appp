@@ -6,6 +6,9 @@ import SockJS from "sockjs-client";
 import { Stomp } from "@stomp/stompjs";
 import { MdSend } from "react-icons/md";
 import { uploadFile } from "@/lib/upload";
+import EmojiPicker from "emoji-picker-react";
+import { FaCamera } from "react-icons/fa";
+
 
 type Message = {
   sender: string;
@@ -26,7 +29,11 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [showCamera, setShowCamera] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasConnected = useRef(false);
 
@@ -99,49 +106,6 @@ export default function ChatPage() {
   };
 
   // Send Message
-  // const sendMessage = async () => {
-  //   if (!stompClient || !username) return;
-
-  //   let fileUrl = "";
-  //   let fileType = "";
-
-  //   // Upload file if selected
-  //   if (selectedFile) {
-  //     try {
-  //       fileUrl = await uploadFile(selectedFile);
-
-  //       if (selectedFile.type.startsWith("image/")) {
-  //         fileType = "image";
-  //       } else if (selectedFile.type.startsWith("video/")) {
-  //         fileType = "video";
-  //       } else {
-  //         fileType = "file";
-  //       }
-  //     } catch (error) {
-  //       alert("File upload failed");
-  //       return;
-  //     }
-  //   }
-
-  //   if (!input.trim() && !fileUrl) return;
-
-  //   const message = {
-  //     sender: username,
-  //     content: input,
-  //     roomId: roomId,
-  //     fileUrl,
-  //     fileType,
-  //   };
-
-  //   stompClient.send(
-  //     `/app/sendMessage/${roomId}`,
-  //     {},
-  //     JSON.stringify(message)
-  //   );
-
-  //   setInput("");
-  //   setSelectedFile(null);
-  // };
   const sendMessage = async () => {
   if (!stompClient || !stompClient.connected || !username) {
     alert("WebSocket not connected yet");
@@ -159,7 +123,9 @@ export default function ChatPage() {
         fileType = "image";
       } else if (selectedFile.type.startsWith("video/")) {
         fileType = "video";
-      } else {
+      }else if (selectedFile.type.startsWith("audio/")) {
+        fileType = "audio";
+      }else {
         fileType = "file";
       }
     } catch (error) {
@@ -191,6 +157,11 @@ export default function ChatPage() {
 
   setInput("");
   setSelectedFile(null);
+  setShowEmojiPicker(false);
+};
+// Emoji click
+const onEmojiClick = (emojiData: any) => {
+  setInput((prev) => prev + emojiData.emoji);
 };
 
   // Leave Room
@@ -203,7 +174,100 @@ export default function ChatPage() {
 
     router.push("/joinroom");
   };
+  //logout room
+  const logout = () => {
+  localStorage.removeItem("username");
+  localStorage.removeItem("token"); 
 
+  if (stompClient && stompClient.connected) {
+    stompClient.disconnect();
+  }
+
+  router.push("/login");
+};
+// start audio
+const startRecording = async () => {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: true,
+  });
+
+  const recorder = new MediaRecorder(stream);
+
+  const chunks: Blob[] = [];
+
+  recorder.ondataavailable = (event) => {
+    chunks.push(event.data);
+  };
+
+  recorder.onstop = async () => {
+    const audioBlob = new Blob(chunks, {
+      type: "audio/webm",
+    });
+
+    const audioFile = new File(
+      [audioBlob],
+      "voice-message.webm",
+      {
+        type: "audio/webm",
+      }
+    );
+
+    setSelectedFile(audioFile);
+  };
+
+  recorder.start();
+
+  setMediaRecorder(recorder);
+  setIsRecording(true);
+};
+//end audio
+const stopRecording = () => {
+  mediaRecorder?.stop();
+  setIsRecording(false);
+};
+
+//open camera..
+const startCamera = async () => {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: true,
+  });
+
+  if (videoRef.current) {
+    videoRef.current.srcObject = stream;
+  }
+
+  setShowCamera(true);
+};
+
+// Capture Photo
+const capturePhoto = () => {
+  const canvas = document.createElement("canvas");
+
+  canvas.width = videoRef.current!.videoWidth;
+  canvas.height = videoRef.current!.videoHeight;
+
+  const ctx = canvas.getContext("2d");
+
+  ctx?.drawImage(
+    videoRef.current!,
+    0,
+    0
+  );
+
+  canvas.toBlob((blob) => {
+    if (!blob) return;
+
+    const file = new File(
+      [blob],
+      "camera-photo.jpg",
+      {
+        type: "image/jpeg",
+      }
+    );
+
+    setSelectedFile(file);
+  });
+};
 
   return (
     <div className="min-h-screen bg-[#0d1117] text-white flex flex-col">
@@ -213,14 +277,6 @@ export default function ChatPage() {
         <h1 className="text-xl font-bold">
           Room : {roomId}
         </h1>
-        {/* <div className="text-sm text-green-400">
-          <p className="text-sm text-green-400">
-            Connected 
-          </p>
-          <p className="text-xs text-gray-300">
-            online
-            </p>
-        </div> */}
 
         <h1 className="text-lg">
           User : {username}
@@ -232,6 +288,12 @@ export default function ChatPage() {
         >
           Leave Room
         </button>
+        <button
+    onClick={logout}
+    className="bg-orange-500 hover:bg-orange-600 px-5 py-2 rounded-lg transition"
+  >
+    Logout
+  </button>
       </div>
 
       {/* Messages */}
@@ -256,11 +318,23 @@ export default function ChatPage() {
                 {message.sender}
               </p>
 
-              {message.content && (
-                <p className="break-words">
-                  {message.content}
-                </p>
-              )}
+             {message.content && (
+  <p className="break-words">
+    {message.content.startsWith("http://") ||
+     message.content.startsWith("https://") ? (
+      <a
+        href={message.content}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-yellow-300 underline"
+      >
+        {message.content}
+      </a>
+    ) : (
+      message.content
+    )}
+  </p>
+)}
 
               {message.fileType === "image" && message.fileUrl && (
                 <img
@@ -270,6 +344,31 @@ export default function ChatPage() {
                 />
               )}
 
+              {message.fileType === "video" && message.fileUrl && (
+                <video
+                  controls
+                  className="mt-2 rounded-lg max-w-full"
+                >
+                  <source
+                    src={message.fileUrl}
+                    type="video/mp4"
+                  />
+                  Your browser does not support video.
+                </video>
+              )}
+
+              {message.fileType === "audio" &&
+  message.fileUrl && (
+    <audio
+      controls
+      className="mt-2 w-full"
+    >
+      <source
+        src={message.fileUrl}
+      />
+    </audio>
+)}
+      
               {message.fileType === "file" && message.fileUrl && (
                 <a
                   href={message.fileUrl}
@@ -279,6 +378,8 @@ export default function ChatPage() {
                   Download File
                 </a>
               )}
+
+              
 
               <p className="text-xs text-gray-200 mt-2 text-right">
                 {message.timeStamp
@@ -299,18 +400,76 @@ export default function ChatPage() {
         <div ref={messagesEndRef} />
       </div>
 
+{showCamera && (
+  <div className="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center gap-4">
+
+    <video
+      ref={videoRef}
+      autoPlay
+      className="w-[400px] rounded-lg"
+    />
+
+    <button
+      onClick={capturePhoto}
+      className="bg-blue-500 px-4 py-2 rounded"
+    >
+      Capture
+    </button>
+
+    <button
+      onClick={() => setShowCamera(false)}
+      className="bg-red-500 px-4 py-2 rounded"
+    >
+      Close
+    </button>
+
+  </div>
+)}
       {/* Input */}
       <div className="fixed bottom-5 left-0 w-full px-4">
         <div className="max-w-4xl mx-auto bg-[#1e293b] rounded-full px-4 py-3 flex items-center gap-3 shadow-lg">
 
           <label className="cursor-pointer bg-slate-700 px-4 py-3 rounded-full">
-            📎
-            <input
-              type="file"
-              hidden
-              onChange={handleFileChange}
-            />
-          </label>
+  📎
+  
+  <input
+    type="file"
+    accept="image/*"
+    hidden
+    onChange={handleFileChange}
+  />
+</label>
+<button
+  type="button"
+  onClick={startCamera}
+  className="bg-slate-700 p-3 rounded-full"
+>
+   <FaCamera />
+</button>
+<button
+  type="button"
+  onClick={
+    isRecording
+      ? stopRecording
+      : startRecording
+  }
+  className="bg-slate-700 px-4 py-3 rounded-full"
+>
+  {isRecording ? "⏹️" : " 🎙️"}
+</button>
+
+<button
+  type="button"
+  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+  className="bg-slate-700 px-4 py-3 rounded-full"
+>
+  😊
+</button>
+{showEmojiPicker && (
+  <div className="absolute bottom-20 left-10 z-50">
+    <EmojiPicker onEmojiClick={onEmojiClick} />
+  </div>
+)}
 
           <input
             type="text"

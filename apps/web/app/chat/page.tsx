@@ -110,6 +110,7 @@ const handleLeaveRoom = async () => {
     window.location.href = "/login";
 };
   // ✅ Online users count
+ 
   const onlineCount = Array.from(onlineUsers.values()).filter(Boolean).length;
 
   return (
@@ -140,7 +141,9 @@ const handleLeaveRoom = async () => {
         <div className="flex h-[calc(100%-60px)]">
           {/* Left sidebar — online users list */}
           <div className="w-[90px] bg-[#000428] flex flex-col items-center py-3 gap-2 overflow-y-auto">
-            {Array.from(onlineUsers.entries()).map(([userId, online]) => (
+            {Array.from(onlineUsers.entries())
+  .filter(([_, online]) => online)
+  .map(([userId]) => (
               <div key={userId} className="text-center">
                 <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold">
                   {userId.charAt(0).toUpperCase()}
