@@ -32,10 +32,15 @@ export default function ChatPage() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const audioStreamRef =useRef<MediaStream | null>(null);
+  const [playingAudio, setPlayingAudio] =useState<number | null>(null);
   const [showCamera, setShowCamera] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasConnected = useRef(false);
+  const mimeTypeRef = useRef<string>("");
+
+
 
   // Load username
   useEffect(() => {
@@ -185,89 +190,163 @@ const onEmojiClick = (emojiData: any) => {
 
   router.push("/login");
 };
-// start audio
+
+// start recording
+
 const startRecording = async () => {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: true,
-  });
-
-  const recorder = new MediaRecorder(stream);
-
-  const chunks: Blob[] = [];
-
-  recorder.ondataavailable = (event) => {
-    chunks.push(event.data);
-  };
-
-  recorder.onstop = async () => {
-    const audioBlob = new Blob(chunks, {
-      type: "audio/webm",
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
     });
+
+    audioStreamRef.current = stream;
+
+    // Fix 2: Browser support check — Safari/Firefox ke liye fallback
+    const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+      ? "audio/webm;codecs=opus"
+      : MediaRecorder.isTypeSupported("audio/webm")
+      ? "audio/webm"
+      : MediaRecorder.isTypeSupported("audio/mp4")
+      ? "audio/mp4"  // Safari fallback
+      : "";
+
+    mimeTypeRef.current = mimeType; // ref mein save karo
+
+    const chunks: Blob[] = [];
+
+    const recorder = new MediaRecorder(
+      stream,
+      mimeType ? { mimeType } : {} // agar mimeType empty hai toh default use ho
+    );
+
+    recorder.ondataavailable = (event) => {
+      console.log("Chunk Size:", event.data.size);
+      if (event.data && event.data.size > 0) {
+        chunks.push(event.data);
+      }
+    };
+
+recorder.onstop = () => {
+  try {
+    const audioBlob = new Blob(chunks, {
+      type: mimeTypeRef.current || "audio/webm",
+    });
+
+    console.log("Audio Size:", audioBlob.size);
+    console.log("Chunks:", chunks.length);
+
+    if (audioBlob.size === 0) {
+      alert("Recording failed. Please try again.");
+      return;
+    }
+
+    const extension = (mimeTypeRef.current || "audio/webm").includes("mp4")
+      ? "mp4" : "webm";
 
     const audioFile = new File(
       [audioBlob],
-      "voice-message.webm",
-      {
-        type: "audio/webm",
-      }
+      `voice-${Date.now()}.${extension}`,
+      { type: mimeTypeRef.current || "audio/webm" }
     );
 
     setSelectedFile(audioFile);
-  };
 
-  recorder.start();
+        // Fix 4: Memory leak — URL revoke karo audio ke baad
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const testAudio = new Audio(audioUrl);
 
-  setMediaRecorder(recorder);
-  setIsRecording(true);
+        testAudio.onended = () => URL.revokeObjectURL(audioUrl);
+
+        testAudio.play().catch((err) => {
+          console.log("Audio preview blocked:", err);
+          URL.revokeObjectURL(audioUrl); // error pe bhi revoke karo
+        });
+
+      } finally {
+        // Microphone tracks stop karo
+        audioStreamRef.current?.getTracks().forEach((track) => {
+          track.stop();
+        });
+        audioStreamRef.current = null;
+      }
+    };
+
+    recorder.onerror = (event) => {
+      console.error("Recorder Error:", event);
+    };
+
+    recorder.start(1000);
+
+    setMediaRecorder(recorder);
+    setIsRecording(true);
+
+  } catch (error) {
+    console.error("Microphone Error:", error);
+    alert("Microphone permission denied or microphone not available.");
+  }
 };
-//end audio
+
+// ─── Stop Recording ─────────────────────────────────────────────
 const stopRecording = () => {
-  mediaRecorder?.stop();
-  setIsRecording(false);
+  try {
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+      mediaRecorder.stop(); // ✅ bas stop, requestData() hata do
+      setIsRecording(false);
+    }
+  } catch (error) {
+    console.error("Stop Recording Error:", error);
+    setIsRecording(false);
+  }
 };
 
 //open camera..
+
 const startCamera = async () => {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: true,
-  });
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      setShowCamera(true);
+      
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      }, 100);
+    } catch (err) {
+      alert("Camera access denied or error occurred");
+    }
+  };
+  //stop camera..
+   const stopCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach((track) => track.stop());
+    }
+    setShowCamera(false);
+  };
 
-  if (videoRef.current) {
-    videoRef.current.srcObject = stream;
-  }
+  // Capture Photo
+  const capturePhoto = () => {
+    if (!videoRef.current) return;
 
-  setShowCamera(true);
-};
+    const canvas = document.createElement("canvas");
+    canvas.width = videoRef.current.videoWidth || 640;
+    canvas.height = videoRef.current.videoHeight || 480;
 
-// Capture Photo
-const capturePhoto = () => {
-  const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    ctx?.drawImage(videoRef.current, 0, 0);
 
-  canvas.width = videoRef.current!.videoWidth;
-  canvas.height = videoRef.current!.videoHeight;
+    canvas.toBlob((blob) => {
+      if (!blob) return;
 
-  const ctx = canvas.getContext("2d");
-
-  ctx?.drawImage(
-    videoRef.current!,
-    0,
-    0
-  );
-
-  canvas.toBlob((blob) => {
-    if (!blob) return;
-
-    const file = new File(
-      [blob],
-      "camera-photo.jpg",
-      {
+      const file = new File([blob], `snap-${Date.now()}.jpg`, {
         type: "image/jpeg",
-      }
-    );
+      });
 
-    setSelectedFile(file);
-  });
-};
+      setSelectedFile(file);
+      stopCamera();
+    }, "image/jpeg");
+  };
+
 
   return (
     <div className="min-h-screen bg-[#0d1117] text-white flex flex-col">
@@ -359,14 +438,42 @@ const capturePhoto = () => {
 
               {message.fileType === "audio" &&
   message.fileUrl && (
-    <audio
-      controls
-      className="mt-2 w-full"
-    >
+    <audio controls>
       <source
         src={message.fileUrl}
+        type="audio/webm"
       />
-    </audio>
+
+    <button
+  onClick={() => {
+    const audio = document.getElementById(
+      `audio-${index}`
+    ) as HTMLAudioElement;
+
+    if (playingAudio === index) {
+      audio.pause();
+      setPlayingAudio(null);
+    } else {
+      audio.play();
+      setPlayingAudio(index);
+
+      audio.onended = () =>
+        setPlayingAudio(null);
+    }
+  }}
+  className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center"
+>
+  {playingAudio === index ? "⏸️" : "▶️"}
+</button>
+
+    <div className="flex-1">
+      <div className="h-1 bg-gray-500 rounded-full"></div>
+    </div>
+
+    <span className="text-xs text-gray-300">
+      🎤
+    </span>
+  </audio>
 )}
       
               {message.fileType === "file" && message.fileUrl && (
@@ -453,10 +560,19 @@ const capturePhoto = () => {
       ? stopRecording
       : startRecording
   }
-  className="bg-slate-700 px-4 py-3 rounded-full"
+  className={`px-4 py-3 rounded-full transition ${
+    isRecording
+      ? "bg-red-500 animate-pulse"
+      : "bg-slate-700"
+  }`}
 >
-  {isRecording ? "⏹️" : " 🎙️"}
+  {isRecording ? "⏹️" : "🎙️"}
 </button>
+{isRecording && (
+  <div className="text-red-500 text-sm animate-pulse">
+    🎤 Recording...
+  </div>
+)}
 
 <button
   type="button"
@@ -501,3 +617,9 @@ const capturePhoto = () => {
     </div>
   );
 }
+
+
+
+
+
+
