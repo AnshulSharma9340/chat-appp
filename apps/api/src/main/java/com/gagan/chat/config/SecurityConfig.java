@@ -20,7 +20,8 @@ public class SecurityConfig {
                                 "/api/files/**",
                                 "/uploads/**",
                                 "/chat/**",
-                                "/api/users/**"
+                                "/api/users/**",
+                                "/api/bot/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 );

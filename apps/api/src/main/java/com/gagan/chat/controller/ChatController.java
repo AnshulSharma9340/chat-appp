@@ -6,6 +6,7 @@ import com.gagan.chat.playload.MessageRequest;
 import com.gagan.chat.repositories.RoomRepository;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
@@ -49,11 +50,11 @@ public class ChatController {
         message.setSender(request.getSender());
         message.setContent(request.getContent());
         message.setTimeStamp(LocalDateTime.now());
+        message.setStatus("DELIVERED"); // server pe aaya = delivered
 
         if (request.getFileUrl() != null) {
             message.setFileUrl(request.getFileUrl());
         }
-
         if (request.getFileType() != null) {
             message.setFileType(request.getFileType());
         }
@@ -65,8 +66,41 @@ public class ChatController {
                 "/topic/room/" + roomId,
                 message
         );
+    }
 
-        System.out.println("Message Sent: " + message);
+    // ── SEEN handler — ADD KARO ────────────────────────────────
+    @MessageMapping("/seen/{roomId}")
+    public void markAsSeen(
+            @DestinationVariable String roomId,
+            @Payload Map<String, String> payload
+    ) {
+        String viewer = payload.get("viewer");
+
+        Room room = roomRepository.findByRoomId(roomId);
+        if (room == null) return;
+
+        boolean changed = false;
+
+        for (Message message : room.getMessages()) {
+            // Jo messages viewer ne nahi bheje unhe SEEN karo
+            if (!message.getSender().equals(viewer)
+                    && !"SEEN".equals(message.getStatus())) {
+                message.setStatus("SEEN");
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            roomRepository.save(room);
+        }
+
+        // Hamesha notify karo — chahe change ho ya na ho
+        messagingTemplate.convertAndSend(
+                "/topic/seen/" + roomId,
+                payload
+        );
+
+        System.out.println("Seen by: " + viewer + " in room: " + roomId);
     }
 
     // user online/offline status
@@ -76,7 +110,5 @@ public class ChatController {
         status.put("online", online);
 
         messagingTemplate.convertAndSend("/topic/status", (Object) status);
-
-        System.out.println("User Status Updated: " + userId + " -> " + online);
     }
 }

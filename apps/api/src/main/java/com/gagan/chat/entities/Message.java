@@ -9,8 +9,10 @@ public class Message {
     private LocalDateTime timeStamp;
     private String fileUrl;
     private String fileType;
+    private String status;
 
     public Message() {
+        this.status = "SENT";
     }
 
     public String getSender() {
@@ -52,4 +54,8 @@ public class Message {
     public void setFileType(String fileType) {
         this.fileType = fileType;
     }
+
+    public String getStatus() {return status;}
+
+    public void setStatus(String status) {this.status = status;}
 }
