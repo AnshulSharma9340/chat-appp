@@ -1,1 +1,1 @@
-export const BASE_URL = "http://`${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/register`";
+export const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
