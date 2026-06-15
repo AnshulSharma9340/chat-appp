@@ -191,7 +191,8 @@
 //     if (!roomId || !username || hasConnected.current) return;
 //     hasConnected.current = true;
 
-//     const socket = new SockJS("http://localhost:8080/chat");
+//     const socket = new SockJS("${process.env.NEXT_PUBLIC_BACKEND_URL}
+// chat");
 //     const stomp = Stomp.over(socket);
 //     stomp.debug = () => {};
 
@@ -798,7 +799,7 @@ const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     if (!roomId || !username || hasConnected.current) return;
     hasConnected.current = true;
 
-    const socket = new SockJS("http://localhost:8080/chat");
+    const socket = new SockJS("${process.env.NEXT_PUBLIC_BACKEND_URL}chat");
     const stomp = Stomp.over(socket);
     stomp.debug = () => {};
     let roomSubscription: any = null;

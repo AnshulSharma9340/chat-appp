@@ -50,8 +50,7 @@ public class FileUploadController {
             Files.copy(file.getInputStream(), filePath);
 
             // file url
-            String fileUrl =
-                    "http://localhost:8080/uploads/" + fileName;
+            String fileUrl ="${process.env.NEXT_PUBLIC_BACKEND_URL}uploads/" + fileName;
 
             return ResponseEntity.ok(fileUrl);
 

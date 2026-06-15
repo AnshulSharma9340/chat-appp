@@ -46,7 +46,7 @@ const fromRoom = searchParams.get("from");
     setIsTyping(true);
 
     try {
-      const res = await fetch("http://localhost:8080/api/bot/reply", {
+      const res = await fetch("${process.env.NEXT_PUBLIC_BACKEND_URL}api/bot/reply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: query }),

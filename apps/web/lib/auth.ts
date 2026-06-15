@@ -42,7 +42,7 @@ export const logout = async () => {
   const email = localStorage.getItem("email");
 
   try {
-    await fetch("http://localhost:8080/auth/logout", {
+    await fetch("${process.env.NEXT_PUBLIC_BACKEND_URL}auth/logout", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,

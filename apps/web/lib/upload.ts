@@ -4,7 +4,7 @@ export const uploadFile = async (file: File) => {
   formData.append("file", file);
 
   const response = await fetch(
-    "http://localhost:8080/api/files/upload",
+    "${process.env.NEXT_PUBLIC_BACKEND_URL}api/files/upload",
     {
       method: "POST",
       body: formData,
