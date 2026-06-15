@@ -6,11 +6,13 @@ import { MdSend } from "react-icons/md";
 import { IoArrowBack } from "react-icons/io5";
 import { useSearchParams } from "next/navigation";
 
+
 type AIMessage = {
   role: "user" | "ai";
   content: string;
   time: string;
 };
+export const dynamic = 'force-dynamic';
 
 export default function AIChatPage() {
   const router = useRouter();
