@@ -1,13 +1,27 @@
 package com.gagan.chat;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
 
 @SpringBootApplication
 public class ChatAppBackendApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(ChatAppBackendApplication.class, args);
-	}
+    @Value("${MONGODB_URI:NOT_FOUND}")
+    private String mongoUri;
 
+    public static void main(String[] args) {
+        SpringApplication.run(ChatAppBackendApplication.class, args);
+    }
+
+    @Bean
+    CommandLineRunner test() {
+        return args -> {
+            System.out.println("====================================");
+            System.out.println("MONGODB_URI = " + mongoUri);
+            System.out.println("====================================");
+        };
+    }
 }
