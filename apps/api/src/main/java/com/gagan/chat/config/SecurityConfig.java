@@ -20,6 +20,7 @@ public class SecurityConfig {
                                 "/api/files/**",
                                 "/uploads/**",
                                 "/chat/**",
+                                "/ws/**",
                                 "/api/users/**",
                                 "/api/bot/**"
                         ).permitAll()
